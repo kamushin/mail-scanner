@@ -27,7 +27,7 @@ class emailDomainNotFind(emailError):
 class EmailLogin(object):
 
     """domain,host,hostType are lists.
-    When init the class, read the conf.txt file to conf domain,host,hostType
+    When init the class, read the conf file to conf domain,host,hostType
     The checkImapMail/checkPopMail
     will find the suitable (domain,host) in these list to verify the password"""
 
@@ -71,7 +71,7 @@ class EmailLogin(object):
         ret = None
         mailHost = None
         for i in range(len(self.mailDomainList)):
-            # pop3 mail
+            # imap mail
             if mailDomain == self.mailDomainList[i] and self.mailType[i] == 'imap':
                 mailHost = self.mailHostList[i]
                 break

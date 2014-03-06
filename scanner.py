@@ -20,14 +20,13 @@ class scanner(threading.Thread):
         self.password = password
 
     def writeToFile(self, result):
-        writelock.acquire()
-        with open(result, "w+") as f:
-            f.write(self.email + ' ' + self.password + '\n')
-        writelock.release()
+        with writelock:
+            with open(result, "a+") as f:
+                f.write(self.email + ' ' + self.password + '\n')
 
     def run(self):
         try:
-            if emailLogin.login(self.email, self.password) == True:
+            if emailLogin.login(self.email, self.password):
                 print("Success")
                 result = 'Success'
             else:
@@ -58,7 +57,8 @@ if __name__ == '__main__':
                 password = content[1]
 
                 while threading.active_count() > maxThread:
-                    pass
+                    time.sleep(sleeptime/10)
                 scanner(email.strip(), password.strip()).start()
 
-    time.sleep(sleeptime)
+#    time.sleep(sleeptime)
+
