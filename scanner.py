@@ -2,7 +2,9 @@
 import sys
 import logging
 import threading
-import time
+import functools
+
+from queue import Queue
 
 import email_login as el
 
@@ -11,45 +13,69 @@ maxThread = 1024
 emailLogin = el.EmailLogin()
 sleeptime = 60
 
+emailQueue = Queue()
 
-def printt():
-    print(1111)
 
-class scanner(threading.Thread):
+
+def coroutine(func):
+
+    @functools.wraps(func)
+    def start(*args, **kwargs):
+        cr = func(*args, **kwargs)
+        next(cr)
+        return cr
+    return start
+
+
+class Scanner(object):
 
     success = open("success", "a+")
     fail = open("fail", "a+")
     ignore = open("ignore", "a+")
 
-    def __init__(self, email, password):
-        super().__init__()
-        self.email = email
-        self.password = password
+    def __init__(self):
+        for i in range(maxThread):
+            t = threading.Thread(target = self.worker)
+            t.setDaemon(True)
+            t.start()
 
-    def writeToFile(self, result):
+    @coroutine
+    def run(self):
+        while True:
+            email = yield
+            emailQueue.put(email)
+
+    
+    def _writeToFile(self, email, password, result):
         with writelock:
             f = getattr(self, result)
-            f.write(self.email + ' ' + self.password + '\n')
+            f.write(email + ' ' + password + '\n')
             f.flush()
 
-    def run(self):
-        try:
-            if emailLogin.login(self.email, self.password):
-                print("Success")
-                result = 'success'
-            else:
-                print("Fail")
-                result = 'fail'
-        except el.emailDomainNotFind as e:
-            result = 'ignore'
-            logging.error(e.msg)
-        except el.emailFormatError:
-            return
+    def worker(self):
+        while True:
+            email, password = emailQueue.get()
 
-        self.writeToFile(result)
+            try:
+                if emailLogin.login(email, password):
+                    print("Success")
+                    result = 'success'
+                else:
+                    print("Fail")
+                    result = 'fail'
+            except el.emailDomainNotFind as e:
+                result = 'ignore'
+                logging.error(e.msg)
+            except el.emailFormatError:
+                return
+
+            self._writeToFile(email, password, result)
+            emailQueue.task_done()
 
 if __name__ == '__main__':
     filename = sys.argv[1]
+    scanner = Scanner()
+    run = scanner.run()
 
     with open(filename, "r") as filehandle:
         while True:
@@ -61,12 +87,9 @@ if __name__ == '__main__':
             content = line.split(' ')
 
             if len(content) == 2:
-                email = content[0]
-                password = content[1]
-
-                while threading.active_count() > maxThread:
-                    time.sleep(sleeptime/10)
-                scanner(email.strip().lower(), password.strip().lower()).start()
-
-#    time.sleep(sleeptime)
+                email = content[0].strip().lower()
+                password = content[1].strip().lower()
+                run.send((email, password))
+                
+    emailQueue.join()
 
