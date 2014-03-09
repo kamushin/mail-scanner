@@ -10,6 +10,7 @@ import email_login as el
 
 emailLogin = el.EmailLogin()
 
+
 def coroutine(func):
 
     @functools.wraps(func)
@@ -32,13 +33,10 @@ class Scanner(object):
         self.writelock = threading.Lock()
 
         for i in range(self.maxThread):
-            t = threading.Thread(target = self._worker)
+            t = threading.Thread(target=self._worker)
             t.setDaemon(True)
             t.start()
 
-
-
-    
     @coroutine
     def __call__(self):
         while True:
@@ -49,7 +47,6 @@ class Scanner(object):
     def send(self, *args, **kwargs):
         self().send(*args, **kwargs)
 
-    
     def _writeToFile(self, email, password, result):
         with self.writelock:
             f = getattr(self, result)
@@ -76,11 +73,8 @@ class Scanner(object):
             self._writeToFile(email, password, result)
             self.emailQueue.task_done()
 
-
-
     def join(self):
         self.emailQueue.join()
-
 
 
 if __name__ == '__main__':
@@ -90,7 +84,7 @@ if __name__ == '__main__':
     with open(filename, "r") as filehandle:
         while True:
             line = filehandle.readline()
-    
+
             if not line:
                 break
 
@@ -100,6 +94,5 @@ if __name__ == '__main__':
                 email = content[0].strip().lower()
                 password = content[1].strip().lower()
                 scanner.send((email, password))
-                
-    scanner.join()
 
+    scanner.join()
