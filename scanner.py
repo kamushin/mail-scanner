@@ -8,14 +8,7 @@ from queue import Queue
 
 import email_login as el
 
-writelock = threading.Lock()
-maxThread = 1024  
 emailLogin = el.EmailLogin()
-sleeptime = 60
-
-emailQueue = Queue()
-
-
 
 def coroutine(func):
 
@@ -33,28 +26,39 @@ class Scanner(object):
     fail = open("fail", "a+")
     ignore = open("ignore", "a+")
 
-    def __init__(self):
-        for i in range(maxThread):
-            t = threading.Thread(target = self.worker)
+    def __init__(self, maxThread=1024):
+        self.maxThread = maxThread
+        self.emailQueue = Queue()
+        self.writelock = threading.Lock()
+
+        for i in range(self.maxThread):
+            t = threading.Thread(target = self._worker)
             t.setDaemon(True)
             t.start()
 
+
+
+    
     @coroutine
-    def run(self):
+    def __call__(self):
         while True:
-            email = yield
-            emailQueue.put(email)
+            task = yield
+            self.emailQueue.put(task)
+
+    # does it make sense or just self.emailQueue.put(task) FIXME
+    def send(self, *args, **kwargs):
+        self().send(*args, **kwargs)
 
     
     def _writeToFile(self, email, password, result):
-        with writelock:
+        with self.writelock:
             f = getattr(self, result)
             f.write(email + ' ' + password + '\n')
             f.flush()
 
-    def worker(self):
+    def _worker(self):
         while True:
-            email, password = emailQueue.get()
+            email, password = self.emailQueue.get()
 
             try:
                 if emailLogin.login(email, password):
@@ -70,12 +74,18 @@ class Scanner(object):
                 return
 
             self._writeToFile(email, password, result)
-            emailQueue.task_done()
+            self.emailQueue.task_done()
+
+
+
+    def join(self):
+        self.emailQueue.join()
+
+
 
 if __name__ == '__main__':
     filename = sys.argv[1]
     scanner = Scanner()
-    run = scanner.run()
 
     with open(filename, "r") as filehandle:
         while True:
@@ -89,7 +99,7 @@ if __name__ == '__main__':
             if len(content) == 2:
                 email = content[0].strip().lower()
                 password = content[1].strip().lower()
-                run.send((email, password))
+                scanner.send((email, password))
                 
-    emailQueue.join()
+    scanner.join()
 
